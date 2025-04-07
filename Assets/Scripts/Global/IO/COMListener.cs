@@ -16,9 +16,9 @@ using UnityEngine;
 #nullable enable
 namespace MajdataPlay.IO
 {
-    internal partial class InputManager : MonoBehaviour
+    internal static partial class InputManager
     {
-        void StartUpdatingTouchPanelState()
+        static void StartUpdatingTouchPanelState()
         {
             if (!_serialPortUpdateTask.IsCompleted)
                 return;
@@ -40,7 +40,6 @@ namespace MajdataPlay.IO
                 {
                     EnsureTouchPanelSerialStreamIsOpen(serial);
                     IsTouchPanelConnected = true;
-                    MajEnv.ExecutionQueue.Enqueue(() => OnTouchPanelConnected());
                     while (true)
                     {
                         token.ThrowIfCancellationRequested();
@@ -76,7 +75,7 @@ namespace MajdataPlay.IO
             }, TaskCreationOptions.LongRunning);
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
-        void ReadFromSerialPort(SerialPort serial)
+        static void ReadFromSerialPort(SerialPort serial)
         {
             var bytes2Read = serial.BytesToRead;
             if (bytes2Read == 0)
@@ -87,7 +86,7 @@ namespace MajdataPlay.IO
             TouchPannelPacketHandle(buffer);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        void TouchPannelPacketHandle(ReadOnlySpan<byte> packet)
+        static void TouchPannelPacketHandle(ReadOnlySpan<byte> packet)
         {
             if (packet.IsEmpty)
                 return;
@@ -133,7 +132,7 @@ namespace MajdataPlay.IO
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        ReadOnlySpan<byte> GetPacketBody(ReadOnlySpan<byte> packet, int start)
+        static ReadOnlySpan<byte> GetPacketBody(ReadOnlySpan<byte> packet, int start)
         {
             var endIndex = -1;
             for (var i = start; i < packet.Length; i++)
@@ -151,7 +150,7 @@ namespace MajdataPlay.IO
             }
             return packet[(start + 1)..endIndex];
         }
-        bool EnsureTouchPanelSerialStreamIsOpen(SerialPort serialSession)
+        static bool EnsureTouchPanelSerialStreamIsOpen(SerialPort serialSession)
         {
             if (serialSession.IsOpen)
             {
@@ -201,7 +200,7 @@ namespace MajdataPlay.IO
                 return true;
             }
         }
-        byte GetSensitivityValue(byte sensor,int sens)
+        static byte GetSensitivityValue(byte sensor,int sens)
         {
             if (sensor > 0x62 || sensor < 0x41)
                 return 0x28;

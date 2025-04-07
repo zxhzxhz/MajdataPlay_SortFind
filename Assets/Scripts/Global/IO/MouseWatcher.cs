@@ -11,18 +11,16 @@ using UnityEngine;
 
 namespace MajdataPlay.IO
 {
-    internal partial class InputManager : MonoBehaviour
+    internal static partial class InputManager
     {
-        readonly static ReadOnlyRef<IMainCameraProvider> _cameraProviderRef = new ReadOnlyRef<IMainCameraProvider>(ref Majdata<IMainCameraProvider>.Instance);
-        readonly static Dictionary<int, int> _instanceID2SensorIndexMappingTable = new();
-        private static float _radius => MajEnv.UserSetting.Misc.InputDevice.TouchPanel.TouchSimulationRadius;
-        static bool[] UpdateMousePosition()
+        readonly static ReadOnlyRef<IMainCameraProvider> _cameraProviderRef;
+        static IReadOnlyDictionary<int, int> _instanceID2SensorIndexMappingTable = new Dictionary<int, int>();
+        static void UpdateMousePosition(Span<bool> extraButtonStates)
         {
             var sensors = _sensors.Span;
             var mainCamera = _cameraProviderRef.Target.MainCamera;
             Span<bool> newStates = stackalloc bool[34];
             //button ring + extras
-            Span<bool> extraButtonStates = stackalloc bool[12];
             if (Input.touchCount > 0)
             {
                 FromTouchPanel(newStates,extraButtonStates, mainCamera);
@@ -46,7 +44,6 @@ namespace MajdataPlay.IO
                 });
             }
             UpdateSensorState();
-            return extraButtonStates.ToArray();
         }
         static void FromTouchPanel(Span<bool> newStates, Span<bool> extraButton, Camera mainCamera)
         {
@@ -99,7 +96,7 @@ namespace MajdataPlay.IO
             }
             for (int i = 0; i < 9; i++)
             {
-                var rad = _radius;
+                var rad = FingerRadius;
                 var circular = new Vector3(rad * Mathf.Sin(45f * i), rad * Mathf.Cos(45f * i));
                 if (i == 8) circular = Vector3.zero;
                 var ray = new Ray(cubeRay + circular, Vector3.forward);
@@ -115,6 +112,5 @@ namespace MajdataPlay.IO
             }
             return -1;
         }
-        bool isInRange(in float input,in float angle,in float range = 11.25f) => Mathf.Abs(Mathf.DeltaAngle(input, angle)) < range;
     }
 }

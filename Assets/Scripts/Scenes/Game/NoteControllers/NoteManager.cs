@@ -53,7 +53,6 @@ namespace MajdataPlay.Game.Notes.Controllers
         readonly Ref<bool>[] _btnUsageStatusRefs = new Ref<bool>[8];
         readonly Ref<bool>[] _sensorUsageStatusRefs = new Ref<bool>[33];
 
-        InputManager _inputManager = MajInstances.InputManager;
         GamePlayManager? _gpManager;
 
         void Awake()
@@ -185,8 +184,8 @@ namespace MajdataPlay.Game.Notes.Controllers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         void GameIOUpdate()
         {
-            var currentButtonStatus = _inputManager.ButtonStatusInThisFrame.Span;
-            var currentSensorStatus = _inputManager.SensorStatusInThisFrame.Span;
+            var currentButtonStatus = InputManager.ButtonStatusInThisFrame.Span;
+            var currentSensorStatus = InputManager.SensorStatusInThisFrame.Span;
 
             for (var i = 0; i < 33; i++)
             {

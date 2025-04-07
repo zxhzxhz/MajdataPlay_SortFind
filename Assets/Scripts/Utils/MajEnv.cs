@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,7 +28,7 @@ namespace MajdataPlay.Utils
         public const int HTTP_BUFFER_SIZE = 8192;
         public const int HTTP_REQUEST_MAX_RETRY = 4;
         public const int HTTP_TIMEOUT_MS = 4000;
-        public static ConcurrentQueue<Action> ExecutionQueue { get; } = IOManager.ExecutionQueue;
+        public static ConcurrentQueue<Action> ExecutionQueue { get; } = new();
         internal static RunningMode Mode { get; set; } = RunningMode.Play;
         public static string RootPath { get; } = Path.Combine(Application.dataPath, "../");
         public static string AssetsPath { get; } = Application.streamingAssetsPath;
@@ -52,7 +53,11 @@ namespace MajdataPlay.Utils
             UseCookies = true,
             CookieContainer = new CookieContainer(),
         });
-        public static GameSetting UserSetting => MajInstances.Setting;
+        public static GameSetting UserSetting
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+        }
         public static CancellationToken GlobalCT => GameManager.GlobalCT;
         public static JsonSerializerOptions UserJsonReaderOption { get; } = new()
         {
@@ -63,6 +68,7 @@ namespace MajdataPlay.Utils
             ReadCommentHandling = JsonCommentHandling.Skip,
             WriteIndented = true
         };
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ChangedSynchronizationContext()
         {
@@ -72,24 +78,11 @@ namespace MajdataPlay.Utils
         }
         static MajEnv()
         {
-            ChangedSynchronizationContext();
-            CheckAndLoadUserSetting();
-            CheckNoteSkinFolder();
-
             var netCachePath = Path.Combine(CachePath, "Net");
             var runtimeCachePath = Path.Combine(CachePath, "Runtime");
-            if (!Directory.Exists(CachePath))
-                Directory.CreateDirectory(CachePath);
-            if (!Directory.Exists(runtimeCachePath))
-                Directory.CreateDirectory(runtimeCachePath);
-            if (!Directory.Exists(netCachePath))
-                Directory.CreateDirectory(netCachePath);
-            if (!Directory.Exists(ChartPath))
-                Directory.CreateDirectory(ChartPath);
-            SharedHttpClient.Timeout = TimeSpan.FromMilliseconds(HTTP_TIMEOUT_MS);
-        }
-        static void CheckAndLoadUserSetting()
-        {
+
+            ChangedSynchronizationContext();
+            CheckNoteSkinFolder();
             if (File.Exists(SettingPath))
             {
                 var js = File.ReadAllText(SettingPath);
@@ -97,19 +90,19 @@ namespace MajdataPlay.Utils
 
                 if (!Serializer.Json.TryDeserialize(js, out setting, UserJsonReaderOption) || setting is null)
                 {
-                    MajInstances.Setting = new();
+                    UserSetting = new();
                     MajDebug.LogError("Failed to read setting from file");
                 }
                 else
                 {
-                    MajInstances.Setting = setting;
+                    UserSetting = setting;
                     //Reset Mod option after reboot
                     MajInstances.Setting.Mod = new ModOptions();
                 }
             }
             else
             {
-                MajInstances.Setting = new GameSetting();
+                UserSetting = new();
 
                 var json = Serializer.Json.Serialize(UserSetting, UserJsonReaderOption);
                 File.WriteAllText(SettingPath, json);
@@ -121,11 +114,23 @@ namespace MajdataPlay.Utils
             UserSetting.Misc.InputDevice.TouchPanel.DebounceThresholdMs = Math.Max(0, UserSetting.Misc.InputDevice.TouchPanel.DebounceThresholdMs);
             UserSetting.Display.InnerJudgeDistance = UserSetting.Display.InnerJudgeDistance.Clamp(0, 1);
             UserSetting.Display.OuterJudgeDistance = UserSetting.Display.OuterJudgeDistance.Clamp(0, 1);
+
+            CreateDirectoryIfNotExists(CachePath);
+            CreateDirectoryIfNotExists(runtimeCachePath);
+            CreateDirectoryIfNotExists(netCachePath);
+            CreateDirectoryIfNotExists(ChartPath);
+            SharedHttpClient.Timeout = TimeSpan.FromMilliseconds(HTTP_TIMEOUT_MS);
         }
+        
         static void CheckNoteSkinFolder()
         {
             if (!Directory.Exists(SkinPath))
                 Directory.CreateDirectory(SkinPath);
+        }
+        static void CreateDirectoryIfNotExists(string path)
+        {
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
         }
     }
 }

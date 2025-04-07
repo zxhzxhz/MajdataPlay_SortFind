@@ -31,7 +31,6 @@ namespace MajdataPlay.References
         public Ref(ref T obj)
         {
             var handle = GCHandle.Alloc(obj, GCHandleType.Pinned);
-            handle.AddrOfPinnedObject();
 
             _pointer = Unsafe.AsPointer(ref obj);
             _handle = GCHandle.ToIntPtr(handle);

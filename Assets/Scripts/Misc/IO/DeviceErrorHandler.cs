@@ -16,12 +16,15 @@ namespace MajdataPlay.IO
         int _retryCount = 0;
         IOManager _ioManager;
 
+        readonly Action _onRetry;
         static readonly Dictionary<DeviceClassification, bool> _deviceHandleState = new();
         static readonly ConcurrentQueue<Action> _executionQueue = IOManager.ExecutionQueue;
-        public DeviceErrorHandler(IOManager ioManager) : this(ioManager, 4) { }
-        public DeviceErrorHandler(IOManager ioManager,int maxRetryCount)
+        
+        public DeviceErrorHandler(IOManager ioManager, Action onRetry) : this(ioManager, onRetry, 4) { }
+        public DeviceErrorHandler(IOManager ioManager,Action onRetry,int maxRetryCount)
         {
             _ioManager = ioManager;
+            _onRetry = onRetry;
             MaxRetryCount = maxRetryCount;
         }
         public void Handle(IOEventType eventType, DeviceClassification deviceType, string msg)
@@ -49,7 +52,7 @@ namespace MajdataPlay.IO
                 {
                     if (_retryCount == MaxRetryCount)
                         return;
-                    MajInstances.InputManager.StartExternalIOManager();
+                    _onRetry();
                     _retryCount++;
                 }
             }

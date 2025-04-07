@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using MajdataPlay.Collections;
 using System.Collections.Concurrent;
 using System.Security.Policy;
+using MajdataPlay.References;
 //using Microsoft.Win32;
 //using System.Windows.Forms;
 //using Application = UnityEngine.Application;
@@ -21,36 +22,52 @@ using System.Security.Policy;
 #nullable enable
 namespace MajdataPlay.IO
 {
-    internal unsafe partial class InputManager : MonoBehaviour
+    internal static unsafe partial class InputManager
     {
-        public bool IsTouchPanelConnected { get; private set; } = false;
-        public ReadOnlyMemory<SensorStatus> ButtonStatusInThisFrame
+        public static bool IsTouchPanelConnected { get; private set; } = false;
+        public static ReadOnlyMemory<SensorStatus> ButtonStatusInThisFrame
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _btnStatusInThisFrame;
         }
-        public ReadOnlyMemory<SensorStatus> ButtonStatusInPreviousFrame
+        public static ReadOnlyMemory<SensorStatus> ButtonStatusInPreviousFrame
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _btnStatusInPreviousFrame;
         }
-        public ReadOnlyMemory<SensorStatus> SensorStatusInThisFrame
+        public static ReadOnlyMemory<SensorStatus> SensorStatusInThisFrame
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _sensorStatusInThisFrame;
         }
-        public ReadOnlyMemory<SensorStatus> SensorStatusInPreviousFrame
+        public static ReadOnlyMemory<SensorStatus> SensorStatusInPreviousFrame
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _sensorStatusInPreviousFrame;
         }
+        public static ReadOnlySpan<bool> TouchPanelRawData
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return _sensorStates.Span;
+            }
+        }
+        public static float FingerRadius
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return MajEnv.UserSetting.Misc.InputDevice.TouchPanel.TouchSimulationRadius;
+            }
+        }
 
         public static event EventHandler<InputEventArgs>? OnAnyAreaTrigger;
 
-        static TimeSpan _btnDebounceThresholdMs = TimeSpan.Zero;
-        static TimeSpan _sensorDebounceThresholdMs = TimeSpan.Zero;
-        static TimeSpan _btnPollingRateMs = TimeSpan.Zero;
-        static TimeSpan _sensorPollingRateMs = TimeSpan.Zero;
+        readonly static TimeSpan _btnDebounceThresholdMs = TimeSpan.Zero;
+        readonly static TimeSpan _sensorDebounceThresholdMs = TimeSpan.Zero;
+        readonly static TimeSpan _btnPollingRateMs = TimeSpan.Zero;
+        readonly static TimeSpan _sensorPollingRateMs = TimeSpan.Zero;
 
         readonly static Memory<SensorStatus> _latestBtnStateLogger = new SensorStatus[12];
         //The serial port will report the status of 35 zones, but there are actually only 34 zones.
@@ -228,52 +245,34 @@ namespace MajdataPlay.IO
             },
         };
         readonly static TimeSpan[] _sensorLastTriggerTimes = new TimeSpan[33];
-        readonly static Memory<SensorRenderer> _sensorRenderers = new SensorRenderer[34];
+        
         //The serial port will report the status of 35 zones, but there are actually only 34 zones.
         readonly static Memory<bool> _sensorStates = new bool[35];
         readonly static SensorStatus[] _sensorStatusInPreviousFrame = new SensorStatus[33];
         readonly static SensorStatus[] _sensorStatusInThisFrame = new SensorStatus[33];
 
         static bool _useDummy = false;
-        static bool _isBtnDebounceEnabled = false;
-        static bool _isSensorDebounceEnabled = false;
-        static bool _isSensorRendererEnabled = false;
+        readonly static bool _isBtnDebounceEnabled = false;
+        readonly static bool _isSensorDebounceEnabled = false;
+        readonly static bool _isSensorRendererEnabled = false;
 
         static Task _serialPortUpdateTask = Task.CompletedTask;
         static Task _buttonRingUpdateTask = Task.CompletedTask;
 
         static IOManager? _ioManager = null;
+        readonly static delegate*<void> _updateIOListenerPtr = &DefaultIOListener;
 
-        static delegate*<void> _updateIOListenerPtr = &DefaultIOListener;
-
-        void Awake()
-        {
-            MajInstances.InputManager = this;
-            DontDestroyOnLoad(this);
-            Input.multiTouchEnabled = true;
-            var sensorRenderers = _sensorRenderers.Span;
-            foreach (var (index, child) in transform.ToEnumerable().WithIndex())
-            {
-                var collider = child.GetComponent<MeshCollider>();
-                var renderer = child.GetComponent<MeshRenderer>();
-                var filter = child.GetComponent<MeshFilter>();
-                sensorRenderers[index] = new SensorRenderer(index, filter, renderer, collider, child.gameObject);
-                _instanceID2SensorIndexMappingTable[collider.GetInstanceID()] = index;
-            }
-            for (var i = 0; i < 33; i++)
-            {
-                if (i.InRange(0, 7))
-                {
-                    _btnLastTriggerTimes[i] = TimeSpan.Zero;
-                }
-                _sensorLastTriggerTimes[i] = TimeSpan.Zero;
-            }
-        }
-        void Start()
+        static InputManager()
         {
             _isSensorRendererEnabled = MajInstances.Setting.Debug.DisplaySensor;
-            
-            switch(MajInstances.Setting.Misc.InputDevice.ButtonRing.Type)
+            _isBtnDebounceEnabled = MajInstances.Setting.Misc.InputDevice.ButtonRing.Debounce;
+            _isSensorDebounceEnabled = MajInstances.Setting.Misc.InputDevice.TouchPanel.Debounce;
+            _btnDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.ButtonRing.DebounceThresholdMs);
+            _btnPollingRateMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.ButtonRing.PollingRateMs);
+            _sensorDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.TouchPanel.DebounceThresholdMs);
+            _sensorPollingRateMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.TouchPanel.PollingRateMs);
+            _cameraProviderRef = new ReadOnlyRef<IMainCameraProvider?>(ref Majdata<IMainCameraProvider>.Instance);
+            switch (MajInstances.Setting.Misc.InputDevice.ButtonRing.Type)
             {
                 case DeviceType.Keyboard:
                     StartInternalIOManager();
@@ -285,39 +284,28 @@ namespace MajdataPlay.IO
                     _updateIOListenerPtr = &UpdateExternalIOListener;
                     break;
             }
-
-        }
-        void OnTouchPanelConnected()
-        {
-            if (!_isSensorRendererEnabled)
+            for (var i = 0; i < 33; i++)
             {
-                foreach (var renderer in _sensorRenderers.Span)
+                if (i.InRange(0, 7))
                 {
-                    renderer.Destroy();
+                    _btnLastTriggerTimes[i] = TimeSpan.Zero;
                 }
+                _sensorLastTriggerTimes[i] = TimeSpan.Zero;
             }
         }
-        internal void OnFixedUpdate()
+        public static void Init(IReadOnlyDictionary<int, int> instanceID2SensorIndexMappingTable)
+        {
+            _instanceID2SensorIndexMappingTable = instanceID2SensorIndexMappingTable;
+            Input.multiTouchEnabled = true;
+        }
+        public static void OnFixedUpdate()
         {
             //_updateIOListener();
         }
-        internal void OnPreUpdate()
+        public static void OnPreUpdate()
         {
             _updateIOListenerPtr();
-            if(_isSensorRendererEnabled)
-            {
-                var sensorRenderers = _sensorRenderers.Span;
-                foreach (var (i, state) in _sensorStates.Span.WithIndex())
-                {
-                    if (i == 34)
-                        continue;
-#if UNITY_EDITOR
-                    sensorRenderers[i].Color = state ? new Color(0, 0, 0, 0.4f) : new Color(0, 0, 0, 0.1f);
-#else
-                    sensorRenderers[i].Color = state ? new Color(0, 0, 0, 0.3f) : new Color(0, 0, 0, 0f);
-#endif
-                }
-            }
+            
             var buttons = _buttons.Span;
             var sensors = _sensors.Span;
             for (var i = 0; i < 12; i++)
@@ -337,34 +325,20 @@ namespace MajdataPlay.IO
         {
 
         }
-        void StartInternalIOManager()
+        static void StartInternalIOManager()
         {
-            _btnDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.ButtonRing.DebounceThresholdMs);
-            _btnPollingRateMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.ButtonRing.PollingRateMs);
-            _sensorDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.TouchPanel.DebounceThresholdMs);
-            _sensorPollingRateMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.TouchPanel.PollingRateMs);
-            //RawInput.Start();
-            //RawInput.OnKeyDown += OnRawKeyDown;
-            //RawInput.OnKeyUp += OnRawKeyUp;
-            _isBtnDebounceEnabled = MajInstances.Setting.Misc.InputDevice.ButtonRing.Debounce;
-            _isSensorDebounceEnabled = MajInstances.Setting.Misc.InputDevice.TouchPanel.Debounce;
             StartUpdatingTouchPanelState();
             StartUpdatingKeyboardState();
         }
-        public void StartExternalIOManager()
+        static void StartExternalIOManager()
         {
             if(_ioManager is null)
                 _ioManager = new();
             Majdata<IOManager>.Instance = _ioManager;
             var useHID = MajInstances.Setting.Misc.InputDevice.ButtonRing.Type is DeviceType.HID;
-            var executionQueue = MajEnv.ExecutionQueue;
+            var executionQueue = IOManager.ExecutionQueue;
             var buttonRingCallbacks = new Dictionary<ButtonRingZone, Action<ButtonRingZone, InputState>>();
             var touchPanelCallbacks = new Dictionary<TouchPanelZone, Action<TouchPanelZone, InputState>>();
-
-            _btnDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.ButtonRing.DebounceThresholdMs);
-            _sensorDebounceThresholdMs = TimeSpan.FromMilliseconds(MajInstances.Setting.Misc.InputDevice.TouchPanel.DebounceThresholdMs);
-            _isBtnDebounceEnabled = MajInstances.Setting.Misc.InputDevice.ButtonRing.Debounce;
-            _isSensorDebounceEnabled = MajInstances.Setting.Misc.InputDevice.TouchPanel.Debounce;
 
             foreach (ButtonRingZone zone in Enum.GetValues(typeof(ButtonRingZone)))
             {
@@ -379,7 +353,7 @@ namespace MajdataPlay.IO
             
             _ioManager.Destroy();
             _ioManager.SubscribeToAllEvents(ExternalIOEventHandler);
-            _ioManager.AddDeviceErrorHandler(new DeviceErrorHandler(_ioManager, 4));
+            _ioManager.AddDeviceErrorHandler(new DeviceErrorHandler(_ioManager,StartExternalIOManager ,4));
 
             try
             {
@@ -440,15 +414,22 @@ namespace MajdataPlay.IO
         {
             try
             {
-                var executionQueue = MajEnv.ExecutionQueue;
-                var extraButtonFromTouch = new bool[0];
+                var executionQueue = IOManager.ExecutionQueue;
+                Span<bool> extraButtonFromTouch = stackalloc bool[12];
                 if (_useDummy)
-                    extraButtonFromTouch = UpdateMousePosition();
+                {
+                    UpdateMousePosition(extraButtonFromTouch);
+                }
                 else
+                {
+                    extraButtonFromTouch = Span<bool>.Empty;
                     UpdateSensorState();
+                }
                 UpdateButtonState(extraButtonFromTouch);
                 while (executionQueue.TryDequeue(out var eventAction))
+                {
                     eventAction();
+                }
             }
             catch (Exception e)
             {
@@ -458,13 +439,15 @@ namespace MajdataPlay.IO
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void UpdateExternalIOListener()
         {
-            var executionQueue = MajEnv.ExecutionQueue;
+            var executionQueue = IOManager.ExecutionQueue;
             try
             {
-                while (executionQueue.TryDequeue(out var eventAction))
-                    eventAction();
                 UpdateSensorState();
                 UpdateButtonState();
+                while (executionQueue.TryDequeue(out var eventAction))
+                {
+                    eventAction();
+                }
             }
             catch (Exception e)
             {
@@ -662,7 +645,7 @@ namespace MajdataPlay.IO
                 button.ClearSubscriber();
             OnAnyAreaTrigger = null;
         }
-        void OnApplicationQuit()
+        public static void OnApplicationQuit()
         {
             _ioManager?.Dispose();
         }
@@ -672,8 +655,6 @@ namespace MajdataPlay.IO
             if (OnAnyAreaTrigger is not null)
                 OnAnyAreaTrigger(null, args);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ReadOnlyMemory<bool> GetTouchPanelRawData() => _sensorStates;
         /// <summary>
         /// Used to check whether the device activation is caused by abnormal jitter
         /// </summary>
@@ -774,36 +755,6 @@ namespace MajdataPlay.IO
                 State = majState,
                 Timestamp = MajTimeline.UnscaledTime
             });
-        }
-    }
-    class SensorRenderer
-    {
-        public int Index { get; init; }
-        public MeshFilter MeshFilter { get; init; }
-        public MeshRenderer MeshRenderer { get; init; }
-        public MeshCollider MeshCollider { get; init; }
-        public GameObject GameObject { get; init; }
-        public Color Color 
-        {
-            get => _material.color;
-            set => _material.color = value; 
-        }
-        Material _material;
-        public SensorRenderer(int index, MeshFilter meshFilter, MeshRenderer meshRenderer, MeshCollider meshCollider, GameObject gameObject)
-        {
-            Index = index;
-            MeshFilter = meshFilter;
-            MeshRenderer = meshRenderer;
-            MeshCollider = meshCollider;
-            _material = new Material(Shader.Find("Sprites/Default"));
-            MeshRenderer.material = _material;
-            GameObject = gameObject;
-            Color = new Color(0, 0, 0, 0f);
-        }
-        public void Destroy()
-        {
-            GameObject.Destroy(GameObject);
-            GameObject.Destroy(_material);
         }
     }
 }

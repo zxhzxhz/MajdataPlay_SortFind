@@ -16,7 +16,6 @@ namespace MajdataPlay
 {
     internal class GameUpdater : MonoBehaviour
     {
-        InputManager _inputManager;
         readonly ReadOnlyRef<GamePlayManager?> _gpManagerRef = new(ref Majdata<GamePlayManager>.Instance);
         void Awake()
         {
@@ -25,7 +24,7 @@ namespace MajdataPlay
         }
         void Start()
         {
-            _inputManager = MajInstances.InputManager;
+            
         }
         //void FixedUpdate()
         //{
@@ -64,7 +63,7 @@ namespace MajdataPlay
         {
             // Time Update
             MajTimeline.OnPreUpdate();
-            _inputManager.OnPreUpdate();
+            InputManager.OnPreUpdate();
             try
             {
                 switch (SceneSwitcher.CurrentScene)

@@ -15,13 +15,13 @@ using UnityEngine.SceneManagement;
 using System.Threading.Tasks;
 using MajdataPlay.SensorTest;
 using System.Collections.Generic;
+using MajdataPlay.IO;
 
 namespace MajdataPlay
 {
 #nullable enable
     public class GameManager : MonoBehaviour
     {
-        public static Camera MainCamera { get; private set; }
         public static CancellationToken GlobalCT { get; }
         public GameSetting Setting
         {
@@ -201,7 +201,7 @@ namespace MajdataPlay
         {
             SelectedDiff = Setting.Misc.SelectedDiff;
             SongStorage.OrderBy = Setting.Misc.OrderBy;
-
+            InputManager.Init(Majdata<TouchPanelRenderer>.Instance!.InstanceID2SensorIndexMappingTable);
             if (MajEnv.Mode == RunningMode.Test)
             {
                 EnterTestMode();

@@ -11,9 +11,9 @@ using UnityEngine;
 #nullable enable
 namespace MajdataPlay.IO
 {
-    internal partial class InputManager : MonoBehaviour
+    internal static partial class InputManager
     {
-        void StartUpdatingKeyboardState()
+        static void StartUpdatingKeyboardState()
         {
             if (!_buttonRingUpdateTask.IsCompleted)
                 return;
@@ -65,7 +65,12 @@ namespace MajdataPlay.IO
             }, TaskCreationOptions.LongRunning);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static void UpdateButtonState(bool[]? extraButtonState = null)
+        static void UpdateButtonState()
+        {
+            UpdateButtonState(Span<bool>.Empty);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void UpdateButtonState(Span<bool> extraButtonState)
         {
             var buttons = _buttons.Span;
             var now = MajTimeline.UnscaledTime;
@@ -85,7 +90,7 @@ namespace MajdataPlay.IO
             {
                 newStates[i] |= latestBtnStateLogger[i];
             }
-            if (extraButtonState != null)
+            if (!extraButtonState.IsEmpty)
             {
                 for (var i = 0; i < extraButtonState.Length; i++)
                 {
@@ -120,14 +125,14 @@ namespace MajdataPlay.IO
                 PushEvent(msg);
             }
         }
-        public void BindButton(EventHandler<InputEventArgs> checker, SensorArea sType)
+        public static void BindButton(EventHandler<InputEventArgs> checker, SensorArea sType)
         {
             var button = GetButton(sType);
             if (button == null)
                 throw new Exception($"{sType} Button not found.");
             button.AddSubscriber(checker);
         }
-        public void UnbindButton(EventHandler<InputEventArgs> checker, SensorArea sType)
+        public static void UnbindButton(EventHandler<InputEventArgs> checker, SensorArea sType)
         {
             var button = GetButton(sType);
             if (button == null)

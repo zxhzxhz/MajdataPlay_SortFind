@@ -108,8 +108,8 @@ namespace MajdataPlay.SensorTest
         }
         void SensorPageUpdate()
         {
-            var rawData = InputManager.GetTouchPanelRawData();
-            foreach (var (i, state) in rawData.Span.WithIndex())
+            var rawData = InputManager.TouchPanelRawData;
+            foreach (var (i, state) in rawData.WithIndex())
             {
                 if (i == 34)
                     continue;

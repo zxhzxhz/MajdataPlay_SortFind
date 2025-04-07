@@ -5,6 +5,8 @@ using MajdataPlay.Types;
 using MajdataPlay.Utils;
 using System;
 using System.Collections.Generic;
+using MajdataPlay.IO;
+
 #nullable enable
 namespace MajdataPlay.Game.Notes.Slide.Utils
 {

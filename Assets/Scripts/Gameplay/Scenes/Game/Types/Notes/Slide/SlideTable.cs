@@ -1,4 +1,5 @@
-﻿using MajdataPlay.Types;
+﻿using MajdataPlay.IO;
+using MajdataPlay.Types;
 
 namespace MajdataPlay.Game.Notes.Slide
 {

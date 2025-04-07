@@ -4,6 +4,8 @@ using MajdataPlay.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MajdataPlay.IO;
+
 #nullable enable
 namespace MajdataPlay.Game.Notes.Slide
 {

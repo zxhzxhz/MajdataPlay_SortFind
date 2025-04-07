@@ -4,6 +4,7 @@ using MajdataPlay.Game.Utils;
 using MajdataPlay.Types;
 using MajdataPlay.Utils;
 using System.Collections.Generic;
+using MajdataPlay.IO;
 using UnityEngine;
 
 namespace MajdataPlay.Game.Notes.Behaviours

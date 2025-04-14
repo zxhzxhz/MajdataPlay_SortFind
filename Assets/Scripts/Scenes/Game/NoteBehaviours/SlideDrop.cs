@@ -191,6 +191,38 @@ namespace MajdataPlay.Game.Notes.Behaviours
 //            transform.position = newPos;
 //#endif
         }
+        public void Merge(SlideDrop subSlide)
+        {
+            if(subSlide.StartPos != EndPos)
+            {
+                throw new InvalidOperationException();
+            }
+            Length += subSlide.Length;
+            var newStarPositions = subSlide._starPositions;
+            var newStarRotations = subSlide._starRotations;
+            newStarPositions.RemoveAt(0);
+            newStarRotations.RemoveAt(0);
+
+            _starPositions.AddRange(newStarPositions);
+            _starRotations.AddRange(newStarRotations);
+            var offset = subSlide._slideBars.Length;
+            var slideBars = new GameObject[offset + _slideBars.Length];
+            var slideBarTransforms = new Transform[offset + _slideBarTransforms.Length];
+            Array.Copy(_slideBars, slideBars, offset);
+            Array.Copy(_slideBarTransforms, slideBarTransforms, offset);
+            for (var i = 0; i < subSlide._slideBars.Length; i++)
+            {
+                var bar = subSlide._slideBars[i];
+                var transform = bar.transform;
+                slideBars[i + offset] = bar;
+                slideBarTransforms[i + offset] = transform;
+                transform.SetParent(Transform);
+            }
+            _slideBars = slideBars;
+            _slideBarTransforms = slideBarTransforms;
+
+            Destroy(subSlide.GameObject);
+        }
         void InitializeSlideGroup()
         {
             var judgeQueue = _judgeQueues[0].Span;

@@ -219,7 +219,7 @@ namespace MajdataPlay.List
                     SongStorage.WorkingCollection.Index = 0;
                 }
             }
-            if (InputManager.CheckButtonStatusInThisFrame(SensorArea.P1, SensorStatus.On))
+            if (InputManager.CheckButtonStatusInThisFrame(SensorArea.P1, SensorStatus.On) || Input.GetKeyDown(KeyCode.Alpha9) || Input.GetKeyDown(KeyCode.Keypad9))
             {
                 MajInstances.SceneSwitcher.SwitchScene("SortFind");
                 _isExited = true;

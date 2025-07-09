@@ -184,6 +184,7 @@ namespace MajdataPlay
         public int SelectedDir { get; set; } = 0;
         public ChartLevel SelectedDiff { get; set; } = ChartLevel.Easy;
         public SongOrder OrderBy { get; set; } = new();
+        public bool noneBlockPlayVoice { get; set; } = false;
     }
     public class IOOptions
     {

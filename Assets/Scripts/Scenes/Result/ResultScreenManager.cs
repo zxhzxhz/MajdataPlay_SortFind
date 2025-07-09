@@ -157,7 +157,16 @@ namespace MajdataPlay.Result
             }
             
         }
-
+        async UniTask WaitForSecondsOrNot(float seconds)
+            {
+                if (MajInstances.Settings.Misc.noneBlockPlayVoice)
+                {
+                    // 如果设置为true，则不等待，直接返回
+                    return;
+                }
+                // 否则，执行原有的等待操作
+                await UniTask.WaitForSeconds(seconds);
+            }
         async UniTask LoadCover(ISongDetail song)
         {
             coverImg.sprite = await song.GetCoverAsync(true);
@@ -168,7 +177,7 @@ namespace MajdataPlay.Result
             if (dxacc >= 97)
             {
                 MajInstances.AudioManager.PlaySFX("Rank.wav");
-                await UniTask.WaitForSeconds(1);
+                await waitForSecondsOrNot(1);
             }
             if (dxacc >= 100.5f)
             {
@@ -202,10 +211,10 @@ namespace MajdataPlay.Result
             }
             if (dxacc > 97)
             {
-                await UniTask.WaitForSeconds(2);
+                await waitForSecondsOrNot(2);
                 var list = new string[] { "good.wav", "good_2.wav", "good_3.wav", "good_4.wav", "good_5.wav", "good_6.wav" };
                 MajInstances.AudioManager.PlaySFX(list[Random.Range(0, list.Length)]);
-                await UniTask.WaitForSeconds(3);
+                await waitForSecondsOrNot(3);
                 if (song is OnlineSongDetail)
                 {
                     MajInstances.AudioManager.PlaySFX("dian_zan.wav");
@@ -215,7 +224,7 @@ namespace MajdataPlay.Result
             {
                 var list = new string[] { "wuyu.wav", "wuyu_2.wav", "wuyu_3.wav" };
                 MajInstances.AudioManager.PlaySFX(list[Random.Range(0, list.Length)]);
-                await UniTask.WaitForSeconds(2);
+                await waitForSecondsOrNot(2);
             }
             await _scoreSaveTask;
             await RecordHelper.StopRecordAsync();
